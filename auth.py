@@ -21,6 +21,6 @@ def check_auth():
     )
 
     # login повертає результат. Якщо кукі є - статус одразу буде True
-    name, authentication_status, username = authenticator.login("Вхід", "main")
+    name, authentication_status, username = authenticator.login(label="Вхід", location="main")
     
     return name, authentication_status, username, authenticator
