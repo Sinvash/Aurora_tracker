@@ -107,7 +107,7 @@ if authentication_status:
                 if clicked_store in my_visits_names:
                     st.success("Вже відвідано")
                 else:
-                    if st.button(f"Я ТУТ БУВ", type="primary"):
+                    if st.button(f"Відвідано!", type="primary"):
                         new_row = pd.DataFrame([{"username": username, "store_name": clicked_store, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "city": selected_city}])
                         updated_df = pd.concat([df_visits, new_row], ignore_index=True)
                         conn.update(spreadsheet=SPREADSHEET_URL, worksheet="visits", data=updated_df)
