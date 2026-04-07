@@ -10,17 +10,20 @@ def check_auth():
         }
     }
 
-    # Створюємо об'єкт аутентифікації
-    # 'aurora_cookie' - назва кукі в браузері
-    # 'signature_key' - будь-який довгий випадковий рядок для шифрування
+    # Створюємо об'єкт
     authenticator = stauth.Authenticate(
         credentials,
         "aurora_cookie", 
-        "some_signature_key_123", 
+        "signature_key_123", 
         cookie_expiry_days=30
     )
 
-    # login повертає результат. Якщо кукі є - статус одразу буде True
-    name, authentication_status, username = authenticator.login(label="Вхід", location="main")
+    # Виклик логіна (у версії 0.3.6 він не повертає значення одразу)
+    authenticator.login(location="main")
+    
+    # Отримуємо дані з сесії
+    authentication_status = st.session_state.get("authentication_status")
+    name = st.session_state.get("name")
+    username = st.session_state.get("username")
     
     return name, authentication_status, username, authenticator
