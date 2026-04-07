@@ -4,7 +4,6 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
 def check_auth():
-    # 1. Завантаження даних (додаємо кеш, щоб не смикати таблицю при кожному F5)
     conn = st.connection("gsheets", type=GSheetsConnection)
     
     @st.cache_data(ttl=600)
@@ -17,27 +16,40 @@ def check_auth():
             u = str(row.get('username', '')).strip()
             if u:
                 creds["usernames"][u] = {
-                    "name": str(row.get('name', 'User')),
+                    "name": str(row.get('name', 'Користувач')),
                     "password": str(row.get('password', ''))
                 }
         return creds
 
     credentials = load_users()
 
-    # 2. Створюємо аутентифікатор лише один раз за сесію
-    if 'authenticator' not in st.session_state:
-        st.session_state.authenticator = stauth.Authenticate(
-            credentials,
-            "aurora_tracker_v1", # Спробуйте змінити назву кукі на нову
-            "constant_key_2026", 
-            cookie_expiry_days=30
-        )
+    # 1. Ініціалізація з ОБОВ'ЯЗКОВИМ вказанням терміну дії кукі
+    authenticator = stauth.Authenticate(
+        credentials,
+        "aurora_app_v2",   # Змінив назву кукі, щоб браузер створив нові
+        "secret_key_2026", 
+        cookie_expiry_days=30 
+    )
 
-    # 3. Виклик логіна
-    # login() повертає status, але він також дублюється в st.session_state['authentication_status']
-    st.session_state.authenticator.login(location="main")
+    # 2. Виклик форми логіна
+    # В нових версіях ми передаємо location та заголовок
+    authenticator.login(location='main')
+
+    # Перевіряємо стан
+    auth_status = st.session_state.get("authentication_status")
+    
+    # 3. Додатковий CSS, щоб гарантувати видимість галочки
+    st.markdown("""
+        <style>
+        /* Робимо чекбокс "Remember me" помітнішим */
+        div[data-testid="stCheckbox"] {
+            margin-top: -15px !important;
+            margin-bottom: 10px !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
     
     return (st.session_state.get("name"), 
-            st.session_state.get("authentication_status"), 
+            auth_status, 
             st.session_state.get("username"), 
-            st.session_state.authenticator)
+            authenticator)
