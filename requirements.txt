@@ -1,3 +1,4 @@
 pandas
 folium
 streamlit-folium
+streamlit-authenticator
