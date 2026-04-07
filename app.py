@@ -133,7 +133,7 @@ if authentication_status:
                 if clicked_store in my_visits:
                     st.success("Вже відвідано")
                 else:
-                    if st.button(f"✅ Я ТУТ БУВ", type="primary", use_container_width=True):
+                    if st.button(f"✅ Відвідано!", type="primary", use_container_width=True):
                         try:
                             new_row = pd.DataFrame([{
                                 "username": username, "store_name": clicked_store,
