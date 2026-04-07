@@ -24,8 +24,6 @@ def check_auth():
                 "password": str(row['password'])
             }
 
-            # ТИМЧАСОВО для тесту (видаліть потім!)
-            st.write("Знайдені користувачі:", list(credentials["usernames"].keys()))
     except Exception as e:
         st.error(f"Помилка підключення до бази даних: {e}")
         st.stop()
