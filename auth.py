@@ -1,29 +1,30 @@
 import streamlit as st
 import streamlit_authenticator as stauth
+from streamlit_gsheets import GSheetsConnection
 
 def check_auth():
-    # Дані користувачів
-    credentials = {
-        "usernames": {
-            "admin": {"name": "Адмін", "password": "123"},
-            "user1": {"name": "Користувач 1", "password": "456"}
+    # Підключаємось до Google Sheets
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # Читаємо аркуш users
+    df_users = conn.read(worksheet="users")
+    
+    # Формуємо словник credentials з таблиці
+    credentials = {"usernames": {}}
+    for _, row in df_users.iterrows():
+        credentials["usernames"][row['username']] = {
+            "name": row['name'],
+            "password": str(row['password']) # Паролі в таблиці мають бути рядками
         }
-    }
 
-    # Створюємо об'єкт
+    # Далі стандартний код
     authenticator = stauth.Authenticate(
-        credentials,
-        "aurora_cookie", 
-        "signature_key_123", 
-        cookie_expiry_days=30
+        credentials, "aurora_cookie", "signature_key", cookie_expiry_days=30
     )
 
-    # Виклик логіна (у версії 0.3.6 він не повертає значення одразу)
     authenticator.login(location="main")
     
-    # Отримуємо дані з сесії
-    authentication_status = st.session_state.get("authentication_status")
-    name = st.session_state.get("name")
-    username = st.session_state.get("username")
-    
-    return name, authentication_status, username, authenticator
+    return (st.session_state.get("name"), 
+            st.session_state.get("authentication_status"), 
+            st.session_state.get("username"), 
+            authenticator)
