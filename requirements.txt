@@ -2,3 +2,5 @@ pandas
 folium
 streamlit-folium
 streamlit-authenticator
+gspread
+st-gsheets-connection
