@@ -25,30 +25,38 @@ if authentication_status:
     authenticator.logout("Вийти з аккаунту", "sidebar")
 
     # --- ЗАВАНТАЖЕННЯ ДАНИХ ---
-    @st.cache_data(ttl=300) # Кеш на 5 хвилин
+    @st.cache_data(ttl=300) 
     def get_data():
         stores = pd.read_csv("avrora_stores.csv")
-        # Читаємо візити (без кешу, щоб бачити оновлення після кнопки)
+        # Читаємо візити (ttl=0 для миттєвого оновлення)
         visits = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="visits", ttl=0)
+        
+        # Захист від порожньої таблиці або неправильних заголовків
+        if not visits.empty:
+            visits.columns = [str(c).strip().lower() for c in visits.columns]
+        else:
+            visits = pd.DataFrame(columns=["username", "store_name", "timestamp", "city"])
+            
         return stores, visits
 
     df_stores, df_visits = get_data()
 
     # Фільтруємо візити тільки для поточного користувача
-    my_visits = df_visits[df_visits['username'] == username]['store_name'].tolist()
+    # Використовуємо .get на випадок відсутності колонки після очищення
+    my_visits = df_visits[df_visits['username'] == username]['store_name'].tolist() if 'username' in df_visits.columns else []
 
     # --- СТОРІНКА 1: МАПА ---
     if page == "📍 Мапа магазинів":
         st.title("📍 Мапа магазинів Аврора")
 
-        # Вибір міста в боковій панелі
+        # Вибір міста
         cities = sorted(df_stores['city'].unique())
         v_idx = cities.index("Вінниця") if "Вінниця" in cities else 0
         selected_city = st.sidebar.selectbox("Оберіть місто", cities, index=v_idx)
 
         filtered_df = df_stores[df_stores['city'] == selected_city]
 
-        # Підрахунок прогресу
+        # Метрики прогресу
         total_in_city = len(filtered_df)
         visited_in_city = len(filtered_df[filtered_df['name'].isin(my_visits)])
         
@@ -64,71 +72,91 @@ if authentication_status:
             for _, row in filtered_df.iterrows():
                 is_visited = row['name'] in my_visits
                 color = "green" if is_visited else "blue"
-                icon = "ok" if is_visited else "shopping-cart"
+                icon = "check" if is_visited else "shopping-cart"
                 
                 folium.Marker(
                     [row['latitude'], row['longitude']],
                     popup=f"<b>{row['name']}</b><br>{'✅ ВІДВІДАНО' if is_visited else '❌ Ще не були'}",
-                    tooltip=row['name'],
+                    tooltip=row['name'], # Це важливо для розпізнавання кліку
                     icon=folium.Icon(color=color, icon=icon, prefix='fa')
                 ).add_to(m)
 
-            st_folium(m, width="100%", height=500)
+            # Виведення мапи (зберігаємо результат у map_data)
+            map_data = st_folium(m, width="100%", height=500, key="main_map")
+
+            # --- ЛОГІКА КЛІКУ НА КАРТІ ---
+            clicked_store = map_data.get("last_object_clicked_tooltip")
             
-            # Секція чекіну
             st.divider()
-            st.subheader("🏁 Відмітити новий візит")
             
-            # Виключаємо вже відвідані зі списку для чекіну
-            available_to_check = filtered_df[~filtered_df['name'].isin(my_visits)]['name'].tolist()
-            
-            if available_to_check:
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    store_to_check = st.selectbox("Оберіть магазин", available_to_check)
-                with col2:
-                    if st.button("✅ Я тут був", use_container_width=True):
+            if clicked_store:
+                st.subheader(f"📍 Обрано: {clicked_store}")
+                if clicked_store in my_visits:
+                    st.success("Ви вже відвідували цей магазин! 🎉")
+                else:
+                    if st.button(f"✅ Відмітити візит у {clicked_store}", type="primary", use_container_width=True):
                         try:
-                            # Готуємо новий рядок
+                            new_row = pd.DataFrame([{
+                                "username": username,
+                                "store_name": clicked_store,
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "city": selected_city
+                            }])
+                            updated_df = pd.concat([df_visits, new_row], ignore_index=True)
+                            conn.update(spreadsheet=SPREADSHEET_URL, worksheet="visits", data=updated_df)
+                            
+                            st.balloons()
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Помилка запису: {e}")
+            else:
+                st.info("💡 Натисніть на маркер магазину на карті, щоб швидко зробити чекін.")
+
+            # Альтернативний вибір через список
+            with st.expander("Або оберіть зі списку вручну"):
+                available_to_check = filtered_df[~filtered_df['name'].isin(my_visits)]['name'].tolist()
+                if available_to_check:
+                    col_s1, col_s2 = st.columns([2, 1])
+                    with col_s1:
+                        store_to_check = st.selectbox("Магазини:", available_to_check)
+                    with col_s2:
+                        if st.button("Зберегти", use_container_width=True):
+                            # Логіка повторюється для стабільності
                             new_row = pd.DataFrame([{
                                 "username": username,
                                 "store_name": store_to_check,
                                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                 "city": selected_city
                             }])
-                            
-                            # Оновлюємо таблицю
                             updated_df = pd.concat([df_visits, new_row], ignore_index=True)
                             conn.update(spreadsheet=SPREADSHEET_URL, worksheet="visits", data=updated_df)
-                            
-                            st.success(f"Візит у '{store_to_check}' записано!")
-                            st.balloons()
-                            st.cache_data.clear() # Очищуємо кеш, щоб мапа перемалювалася зеленим
+                            st.cache_data.clear()
                             st.rerun()
-                        except Exception as e:
-                            st.error(f"Помилка запису: {e}")
-            else:
-                st.info("🎉 Вітаємо! Ви відвідали всі магазини у цьому місті!")
+                else:
+                    st.write("Усі магазини в цьому місті відвідано!")
 
     # --- СТОРІНКА 2: ІСТОРІЯ ---
     elif page == "📜 Моя історія":
         st.title("📜 Історія ваших візитів")
-        user_history = df_visits[df_visits['username'] == username].sort_values(by="timestamp", ascending=False)
-        
-        if not user_history.empty:
-            st.dataframe(user_history[["timestamp", "store_name", "city"]], use_container_width=True)
+        if not df_visits.empty and 'username' in df_visits.columns:
+            user_history = df_visits[df_visits['username'] == username].sort_values(by="timestamp", ascending=False)
+            if not user_history.empty:
+                st.dataframe(user_history[["timestamp", "store_name", "city"]], use_container_width=True)
+            else:
+                st.warning("Ви ще не зробили жодного чекіну.")
         else:
-            st.warning("Ви ще не зробили жодного чекіну.")
+            st.warning("Історія порожня.")
 
     # --- СТОРІНКА 3: НАЛАШТУВАННЯ ---
     elif page == "⚙️ Налаштування":
         st.title("⚙️ Налаштування")
-        st.write(f"**Логін:** {username}")
-        if st.button("Очистити кеш додатка"):
+        st.write(f"**Аккаунт:** {name} (@{username})")
+        if st.button("Очистити кеш даних"):
             st.cache_data.clear()
             st.rerun()
 
 elif authentication_status == False:
     st.error("Невірний логін або пароль.")
 elif authentication_status == None:
-    st.warning("Будь ласка, авторизуйтесь.")
+    st.warning("Будь ласка, авторизуйтесь для доступу до карти.")
