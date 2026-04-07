@@ -6,6 +6,7 @@ from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 from auth import check_auth
 
+st.write(f"Версія аутентифікатора: {stauth.__version__}")
 # --- КОНФІГУРАЦІЯ ТА СТИЛІ ---
 st.set_page_config(page_title="Aurora Tracker", layout="wide")
 
