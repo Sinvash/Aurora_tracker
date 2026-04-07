@@ -1,7 +1,6 @@
 import streamlit as st
 import streamlit_authenticator as stauth
 from streamlit_gsheets import GSheetsConnection
-import pandas as pd
 
 def check_auth():
     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -23,33 +22,18 @@ def check_auth():
 
     credentials = load_users()
 
-    # 1. Ініціалізація з ОБОВ'ЯЗКОВИМ вказанням терміну дії кукі
+    # Створюємо об'єкт (важливо: cookie_name має бути без пробілів)
     authenticator = stauth.Authenticate(
         credentials,
-        "aurora_app_v2",   # Змінив назву кукі, щоб браузер створив нові
-        "secret_key_2026", 
+        "aurora_tracker_v4", 
+        "constant_key_2026", 
         cookie_expiry_days=30 
     )
 
-    # 2. Виклик форми логіна
-    # В нових версіях ми передаємо location та заголовок
+    # Виклик логіна з явною назвою для активації кукі
     authenticator.login(location='main')
 
-    # Перевіряємо стан
-    auth_status = st.session_state.get("authentication_status")
-    
-    # 3. Додатковий CSS, щоб гарантувати видимість галочки
-    st.markdown("""
-        <style>
-        /* Робимо чекбокс "Remember me" помітнішим */
-        div[data-testid="stCheckbox"] {
-            margin-top: -15px !important;
-            margin-bottom: 10px !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
     return (st.session_state.get("name"), 
-            auth_status, 
+            st.session_state.get("authentication_status"), 
             st.session_state.get("username"), 
             authenticator)
