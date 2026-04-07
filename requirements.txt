@@ -1,6 +1,6 @@
 pandas
 folium
 streamlit-folium
-streamlit-authenticator
+streamlit-authenticator==0.3.2
 gspread
 st-gsheets-connection
