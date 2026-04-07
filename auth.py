@@ -4,46 +4,41 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
 def check_auth():
-    # 1. Підключаємось до Google Sheets
-    # Налаштування сервісного акаунта мають бути у Secrets під ключем [connections.gsheets]
     conn = st.connection("gsheets", type=GSheetsConnection)
     
     try:
-        # 2. Читаємо дані користувачів з вашої таблиці
-        # Використовуємо ваш ID таблиці
         spreadsheet_url = "https://docs.google.com/spreadsheets/d/1TX9osMipdC_l6K5Fa3xHu4IGJ3gBromanbFQQuyfax0/edit"
-        df_users = conn.read(spreadsheet=spreadsheet_url, worksheet="users")
+        # Використовуємо невеликий ttl для балансу швидкості та актуальності
+        df_users = conn.read(spreadsheet=spreadsheet_url, worksheet="users", ttl=600)
         
-        # Перетворюємо дані в словник, який розуміє аутентифікатор
+        df_users.columns = [str(c).strip().lower() for c in df_users.columns]
         credentials = {"usernames": {}}
         for _, row in df_users.iterrows():
-            # Перетворюємо всі значення в рядки, щоб уникнути помилок з числами в паролях
-            username = str(row['username']).strip()
-            credentials["usernames"][username] = {
-                "name": str(row['name']),
-                "password": str(row['password'])
-            }
-
+            u_name = str(row.get('username', '')).strip()
+            if u_name:
+                credentials["usernames"][u_name] = {
+                    "name": str(row.get('name', 'Користувач')).strip(),
+                    "password": str(row.get('password', '')).strip()
+                }
+            
     except Exception as e:
-        st.error(f"Помилка підключення до бази даних: {e}")
+        st.error(f"Помилка бази даних: {e}")
         st.stop()
 
-    # 3. Ініціалізація аутентифікатора
-    # cookie_name та key можуть бути будь-якими рядками
+    # Створюємо об'єкт аутентифікації
+    # ВАЖЛИВО: cookie_name та key мають бути унікальними та незмінними
     authenticator = stauth.Authenticate(
         credentials, 
-        "aurora_cookie", 
-        "aurora_secret_key_2026", 
+        "aurora_tracker_cookie", # Назва кукі в браузері
+        "random_signature_key_12345", # Ключ шифрування (не міняйте його!)
         cookie_expiry_days=30
     )
 
-    # 4. Виклик форми логіна
-    # У версії 0.3.x вона автоматично керує session_state
+    # Виклик форми логіна
+    # Аргумент clear_on_submit=False допомагає кукам
     authenticator.login(location="main")
     
-    # Отримуємо результати з session_state
-    name = st.session_state.get("name")
-    authentication_status = st.session_state.get("authentication_status")
-    username = st.session_state.get("username")
-    
-    return name, authentication_status, username, authenticator
+    return (st.session_state.get("name"), 
+            st.session_state.get("authentication_status"), 
+            st.session_state.get("username"), 
+            authenticator)
