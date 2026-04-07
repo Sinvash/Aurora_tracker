@@ -2,21 +2,25 @@ import streamlit as st
 import streamlit_authenticator as stauth
 
 def check_auth():
-    # Налаштування користувачів (можна додати більше)
-    names = ["Адмін", "Користувач 1"]
-    usernames = ["admin", "user1"]
-    passwords = ["123", "456"] 
+    # Дані користувачів
+    credentials = {
+        "usernames": {
+            "admin": {"name": "Адмін", "password": "123"},
+            "user1": {"name": "Користувач 1", "password": "456"}
+        }
+    }
 
-    # Хешування
-    hashed_passwords = stauth.Hasher(passwords).generate()
-
+    # Створюємо об'єкт аутентифікації
+    # 'aurora_cookie' - назва кукі в браузері
+    # 'signature_key' - будь-який довгий випадковий рядок для шифрування
     authenticator = stauth.Authenticate(
-        {"credentials": {"usernames": {u: {"name": n, "password": p} 
-         for u, n, p in zip(usernames, names, hashed_passwords)}}},
-        "aurora_cookie", "auth_key", cookie_expiry_days=30
+        credentials,
+        "aurora_cookie", 
+        "some_signature_key_123", 
+        cookie_expiry_days=30
     )
 
-    # Повертаємо результат логіна
-    name, authentication_status, username = authenticator.login("Login", "main")
+    # login повертає результат. Якщо кукі є - статус одразу буде True
+    name, authentication_status, username = authenticator.login("Вхід", "main")
     
     return name, authentication_status, username, authenticator

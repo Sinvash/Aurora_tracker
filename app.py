@@ -1,60 +1,34 @@
 import streamlit as st
-import pandas as pd
-import folium
-from streamlit_folium import st_folium
+from auth import check_auth
 
-# Налаштування сторінки
-st.set_page_config(page_title="Aurora Tracker", layout="wide", initial_sidebar_state="expanded")
+# Перевірка авторизації (кукі спрацюють тут автоматично)
+name, authentication_status, username, authenticator = check_auth()
 
-st.title("📍 Мій Щоденник Аврори")
-
-# Функція завантаження даних
-@st.cache_data
-def load_data():
-    df = pd.read_csv("avrora_stores.csv")
-    return df
-
-try:
-    df = load_data()
-
-    # Бокова панель для фільтрації
-    st.sidebar.header("Фільтри")
-    cities = sorted(df['city'].unique())
-    # Намагаємось автоматично обрати Вінницю, якщо вона є в списку
-    default_city_index = cities.index("Вінниця") if "Вінниця" in cities else 0
-    selected_city = st.sidebar.selectbox("Оберіть місто", cities, index=default_city_index)
-
-    filtered_df = df[df['city'] == selected_city]
-
-    # Вивід статистики
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Магазинів у місті", len(filtered_df))
-    with col2:
-        st.metric("Ваші візити (скоро)", "0")
-
-    # Створення мапи
-    st.subheader(f"Мапа магазинів: {selected_city}")
+if authentication_status:
+    # 1. Бокова панель з логаутом та меню
+    authenticator.logout("Вийти", "sidebar")
+    st.sidebar.title(f"Вітаємо, {name}!")
     
-    # Визначаємо центр мапи по середнім координатам
-    center_lat = filtered_df['latitude'].mean()
-    center_lng = filtered_df['longitude'].mean()
-    
-    m = folium.Map(location=[center_lat, center_lng], zoom_start=13)
+    # 2. Навігація між сторінками
+    page = st.sidebar.radio("Меню", ["📍 Мапа магазинів", "📜 Моя історія", "⚙️ Налаштування"])
 
-    for idx, row in filtered_df.iterrows():
-        folium.Marker(
-            [row['latitude'], row['longitude']],
-            popup=f"<b>{row['name']}</b><br>{row['city']}",
-            tooltip=row['name']
-        ).add_to(m)
+    # --- СТОРІНКА 1: МАПА ---
+    if page == "📍 Мапа магазинів":
+        st.title("Мапа магазинів Аврора")
+        # Тут ваш старий код з завантаженням CSV та folium
+        st.info("Тут відображається мапа з усіма точками Вінниці...")
 
-    st_folium(m, width="100%", height=500)
+    # --- СТОРІНКА 2: ІСТОРІЯ ---
+    elif page == "📜 Моя історія":
+        st.title("Ваші минулі візити")
+        st.write("Тут ми згодом виведемо таблицю з вашими чекінами.")
 
-    # Список під мапою
-    st.subheader("Список адрес")
-    st.dataframe(filtered_df[['name', 'city', 'pickup_time']], use_container_width=True)
+    # --- СТОРІНКА 3: НАЛАШТУВАННЯ ---
+    elif page == "⚙️ Налаштування":
+        st.title("Налаштування профілю")
+        st.write(f"Ви зайшли як: {username}")
 
-except Exception as e:
-    st.error(f"Помилка завантаження даних: {e}")
-    st.info("Переконайтеся, що файл avrora_stores.csv знаходиться в тому самому репозиторії.")
+elif authentication_status == False:
+    st.error("Логін/пароль невірні")
+elif authentication_status == None:
+    st.warning("Будь ласка, введіть дані для входу")
