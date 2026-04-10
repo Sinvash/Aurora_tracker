@@ -122,7 +122,7 @@ if auth_status:
         if clicked:
             st.write(f"📍 **{clicked}**")
             if clicked not in my_visits_names:
-                if st.button("Я ТУТ БУВ", type="primary"):
+                if st.button("Відвідано!", type="primary"):
                     new_v = pd.DataFrame([{"username": username, "store_name": clicked, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "city": selected_city}])
                     conn.update(spreadsheet=SPREADSHEET_URL, worksheet="visits", data=pd.concat([df_visits, new_v], ignore_index=True))
                     st.cache_data.clear()
